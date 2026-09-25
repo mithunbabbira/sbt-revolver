@@ -57,9 +57,9 @@ case class AppProcess(projectRef: ProjectRef, consoleColor: String, log: Logger)
   registerShutdownHook()
 
   def stop() {
-    unregisterShutdownHook()
     process.destroy()
     process.exitValue()
+    unregisterShutdownHook()
   }
 
   def registerShutdownHook() {
