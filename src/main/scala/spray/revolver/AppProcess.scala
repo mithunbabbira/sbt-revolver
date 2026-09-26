@@ -17,6 +17,7 @@
 package spray.revolver
 
 import java.lang.{Runtime => JRuntime}
+import java.util.concurrent.TimeUnit
 import sbt.{Logger, ProjectRef}
 
 import scala.sys.process.Process
@@ -49,6 +50,7 @@ case class AppProcess(projectRef: ProjectRef, consoleColor: String, log: Logger)
         Actions.unregisterAppProcess(projectRef)
       }
     })
+    thread.setDaemon(true)
     thread.start()
     thread
   }
@@ -56,10 +58,28 @@ case class AppProcess(projectRef: ProjectRef, consoleColor: String, log: Logger)
 
   registerShutdownHook()
 
+  /**
+   * Stop the running application. Sends SIGTERM to the child process
+   * (which triggers JVM shutdown hooks) and waits up to 2 seconds for
+   * graceful exit before forcing a kill. The shutdown hook remains
+   * registered for true JVM shutdown.
+   */
   def stop() {
-    unregisterShutdownHook()
+    // Send SIGTERM first to allow the child JVM to run its shutdown hooks
     process.destroy()
-    process.exitValue()
+
+    // Wait for graceful exit (allows shutdown hooks to run)
+    val exited = process.waitFor(2, TimeUnit.SECONDS)
+    if (!exited) {
+      log.info("[YELLOW]Application did not shut down gracefully, forcing kill ...")
+      process.destroyForcibly()
+    }
+
+    try {
+      finishState = Some(process.exitValue())
+    } catch {
+      case _: IllegalStateException => // process still running, ignore
+    }
   }
 
   def registerShutdownHook() {
