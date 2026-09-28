@@ -57,9 +57,15 @@ case class AppProcess(projectRef: ProjectRef, consoleColor: String, log: Logger)
   registerShutdownHook()
 
   def stop() {
-    unregisterShutdownHook()
     process.destroy()
-    process.exitValue()
+    unregisterShutdownHook()
+    // Wait briefly for the process to terminate so shutdown hooks in
+    // the forked JVM can fire before we remove our hook.
+    try { Thread.sleep(500) } catch { case _: InterruptedException => }
+    val code = process.exitValue()
+    finishState = Some(code)
+    log.info("... finished with exit code %d" format code)
+    Actions.unregisterAppProcess(projectRef)
   }
 
   def registerShutdownHook() {
