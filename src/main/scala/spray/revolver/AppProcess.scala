@@ -57,8 +57,12 @@ case class AppProcess(projectRef: ProjectRef, consoleColor: String, log: Logger)
   registerShutdownHook()
 
   def stop() {
-    unregisterShutdownHook()
+    // Destroy the process first so that JVM shutdown hooks fire before we
+    // unregister the shutdown hook. If we unregister first, the JVM shutdown
+    // hooks will never run when the process is destroyed.
+    // See: https://github.com/spray/sbt-revolver/issues/20
     process.destroy()
+    unregisterShutdownHook()
     process.exitValue()
   }
 
