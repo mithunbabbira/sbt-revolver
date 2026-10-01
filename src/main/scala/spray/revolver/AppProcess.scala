@@ -56,9 +56,17 @@ case class AppProcess(projectRef: ProjectRef, consoleColor: String, log: Logger)
 
   registerShutdownHook()
 
+  /**
+   * Stop the running application process.
+   *
+   * Important: destroy() must be called before unregisterShutdownHook() so that
+   * the JVM shutdown hook fires during the destroy() lifecycle. If unregistered
+   * first, the hook is never invoked and user-registered shutdown hooks (e.g.
+   * via Runtime.addShutdownHook) will not run on ~reStop/~reStart.
+   */
   def stop() {
-    unregisterShutdownHook()
     process.destroy()
+    unregisterShutdownHook()
     process.exitValue()
   }
 
